@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    // This creates a robust alias for the shared directory.
+    "baseUrl": "./src",
+    "paths": {
+      "@shared/*": ["../../shared/*"]
+    }
+  },
+  "include": ["src/**/*"]
+}

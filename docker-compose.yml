@@ -1,0 +1,81 @@
+# Definitive docker-compose.yml for a Monorepo
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.3
+    container_name: autoride-zookeeper
+    environment: { ZOOKEEPER_CLIENT_PORT: 2181, ZOOKEEPER_TICK_TIME: 2000 }
+  kafka:
+    image: confluentinc/cp-kafka:7.5.3
+    container_name: autoride-kafka
+    ports: ["9092:9092"]
+    depends_on: [zookeeper]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: autoride-redis
+    ports: ["6379:6379"]
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+      args: { service_name: api-gateway }
+    container_name: api-gateway-service
+    ports: ["3001:3000"]
+    environment:
+      {
+        KAFKA_BROKERS: "kafka:29092",
+        DATABASE_URL: "${DATABASE_URL}",
+        REDIS_URL: "redis://redis:6379",
+        API_KEY: "${API_KEY}",
+      }
+    depends_on: [kafka, redis]
+
+  ride-request-service:
+    build:
+      context: .
+      dockerfile: services/ride-request/Dockerfile
+      args: { service_name: ride-request }
+    container_name: ride-request-service
+    expose: ["3002:3000"]
+    environment:
+      { KAFKA_BROKERS: "kafka:29092", DATABASE_URL: "${DATABASE_URL}" }
+    depends_on: [kafka]
+
+  dispatcher-ai-service:
+    build:
+      context: .
+      dockerfile: services/dispatcher-ai/Dockerfile
+      args: { service_name: dispatcher-ai }
+    container_name: dispatcher-ai-service
+    environment:
+      {
+        KAFKA_BROKERS: "kafka:29092",
+        DATABASE_URL: "${DATABASE_URL}",
+        OPENAI_API_KEY: "${OPENAI_API_KEY}",
+      }
+    depends_on: [kafka]
+
+  location-simulator:
+    build:
+      context: .
+      dockerfile: services/location-simulator/Dockerfile
+      args: { service_name: location-simulator }
+    container_name: location-simulator-service
+    restart: unless-stopped
+    environment:
+      KAFKA_BROKERS: "kafka:9092"
+    depends_on: [api-gateway]

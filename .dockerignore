@@ -1,0 +1,18 @@
+# Ignore dependencies
+node_modules/
+
+# Ignore Next.js build folder
+.next/
+
+# Ignore Git folder
+.git/
+
+# Ignore local environment files
+.env
+*.env.local
+
+# Ignore macOS system files
+.DS_Store
+
+# Ignore build logs
+npm-debug.log*
