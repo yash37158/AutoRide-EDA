@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Children, useEffect, useRef, useState } from "react";
 import { useAutoRideStore } from "@/lib/store";
 
 declare global {
@@ -31,7 +31,7 @@ async function loadMapbox(): Promise<any> {
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-export function MapViewport() {
+export function MapViewport({ children }: { children: React.ReactNode }) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const markersRef = useRef<{ [key: string]: any }>({});
@@ -351,7 +351,7 @@ export function MapViewport() {
   return (
     <div className="relative w-full h-full">
       <div ref={mapContainer} className="w-full h-full" />
-
+      {children}
       {/* Map Style Selector */}
       <div className="absolute top-4 right-4 z-20">
         <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 p-2">

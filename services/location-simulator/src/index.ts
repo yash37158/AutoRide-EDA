@@ -1,100 +1,127 @@
-// autoride-eda/services/location-simulator/src/index.ts
-import { Kafka } from "kafkajs";
+import 'dotenv/config'; // Load .env file
+import { Kafka } from 'kafkajs';
+import axios from 'axios';
+import polyline from '@mapbox/polyline';
 
-const KAFKA_TOPIC = "vehicle.locations";
-const FLEET_SIZE = 10;
-
-// In-memory store for the state of our 10 taxis
-const vehicles = new Map<
-  string,
-  { lat: number; lon: number; bearing: number }
->();
-
-function initializeFleet() {
-  for (let i = 1; i <= FLEET_SIZE; i++) {
-    const taxiId = `TAXI-${i}`;
-    vehicles.set(taxiId, {
-      lat: 40.7589 + (Math.random() - 0.5) * 0.1, // Start around NYC
-      lon: -73.9851 + (Math.random() - 0.5) * 0.1,
-      bearing: Math.random() * 360,
-    });
-  }
-  console.log(`[location-simulator] Initialized ${FLEET_SIZE} vehicles.`);
+const MAPBOX_TOKEN = process.env.MAPBOX_TOKEN;
+if (!MAPBOX_TOKEN) {
+  throw new Error("Mapbox token not found. Please add it to .env file.");
 }
 
-// Function to retry connecting to Kafka
-async function connectWithRetry(kafka: Kafka, retries = 5, delay = 3000) {
-  for (let i = 0; i <= retries; i++) {
-    try {
-      const producer = kafka.producer();
-      await producer.connect();
-      console.log("[location-simulator] Kafka producer connected.");
-      return producer; // Return the producer if connection is successful
-    } catch (error: any) {
-      console.error(
-        `[location-simulator] Failed to connect to Kafka (attempt ${i + 1}/${retries}):`,
-        error.message,
-      );
-      if (i === retries) {
-        console.error(
-          "[location-simulator] Max retries reached. Could not connect to Kafka.",
-        );
-        throw error; // Re-throw the error to stop the service
-      }
-      await new Promise((resolve) => setTimeout(resolve, delay));
-    }
+const kafka = new Kafka({
+  clientId: 'location-simulator',
+  brokers: ['localhost:9092'],
+});
+
+const producer = kafka.producer();
+const TAXI_COUNT = 7;
+
+type VehicleLocation = {
+  taxiId: string;
+  lat: number;
+  lon: number;
+  speedKph: number;
+  status: 'IDLE' | 'ENROUTE';
+  seq: number;
+};
+
+type TaxiState = {
+  data: VehicleLocation;
+  route: [number, number][]; // Array of [lon, lat] points
+  routeStep: number;
+};
+
+// In-memory state for all our taxis
+const taxis: Record<string, TaxiState> = {};
+
+// Function to get a route from Mapbox Directions API
+async function getNewRoute(start: [number, number]): Promise<[number, number][]> {
+  const endLon = -73.9851 + (Math.random() - 0.5) * 0.1;
+  const endLat = 40.7589 + (Math.random() - 0.5) * 0.1;
+  const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${start[0]},${start[1]};${endLon},${endLat}?geometries=polyline&access_token=${MAPBOX_TOKEN}`;
+
+  try {
+    const response = await axios.get(url);
+    const geometry = response.data.routes[0].geometry;
+    // Decode the polyline to get an array of [lat, lon] and reverse it to [lon, lat] for consistency
+    return polyline.decode(geometry).map(p => [p[1], p[0]]);
+  } catch (error) {
+    console.error(
+      "Error fetching route from Mapbox:",
+      (error instanceof Error) ? error.message : error
+    );
+    return []; // Return an empty route on error
   }
-  throw new Error("Failed to connect to Kafka after retries"); // This should not be reached if the loop exits
 }
 
-async function runSimulation() {
-  console.log("[location-simulator] Starting...");
-  initializeFleet();
 
-  // Initialize the Kafka client with brokers from the environment.
-  const kafka = new Kafka({
-    clientId: "location-simulator",
-    brokers: process.env.KAFKA_BROKERS?.split(",") || ["kafka:29092"],
-  });
+// Initialize all taxis
+for (let i = 0; i < TAXI_COUNT; i++) {
+  const taxiId = `taxi-${i.toString().padStart(3, '0')}`;
+  taxis[taxiId] = {
+    data: {
+      taxiId,
+      lat: 40.7589 + (Math.random() - 0.5) * 0.05,
+      lon: -73.9851 + (Math.random() - 0.5) * 0.05,
+      speedKph: 0,
+      status: 'IDLE',
+      seq: Date.now(),
+    },
+    route: [],
+    routeStep: 0,
+  };
+}
 
-  const producer = await connectWithRetry(kafka);
 
-  // Send the location updates every 2 seconds.
+async function run() {
+  await producer.connect();
+  console.log('Smart location simulator connected to Kafka.');
+
+  // Main simulation loop
   setInterval(async () => {
-    const kafkaMessages = [];
+    for (const taxiId in taxis) {
+      const taxi = taxis[taxiId];
 
-    for (const [id, state] of vehicles.entries()) {
-      // Simulate movement. Move forward with a small turn.
-      const speed = 0.0001; // Degrees per second
-      state.bearing = (state.bearing + (Math.random() - 0.5) * 10 + 360) % 360;
-      const radians = (state.bearing * Math.PI) / 180;
-      state.lat += speed * Math.cos(radians);
-      state.lon += speed * Math.sin(radians);
-
-      // Create the payload for Kafka.
-      const payload = {
-        taxi_id: id,
-        latitude: state.lat,
-        longitude: state.lon,
-        timestamp: Date.now(),
-      };
-
-      // Add to the list of messages to send.
-      kafkaMessages.push({ key: id, value: JSON.stringify(payload) });
-    }
-
-    if (kafkaMessages.length > 0) {
-      // Send the batch of messages to Kafka.
-      try {
-        await producer.send({
-          topic: KAFKA_TOPIC,
-          messages: kafkaMessages,
-        });
-      } catch (e) {
-        console.error("Error sending Kafka message", e);
+      // If a taxi is IDLE, get it a new route
+      if (taxi.data.status === 'IDLE') {
+        const newRoute = await getNewRoute([taxi.data.lon, taxi.data.lat]);
+        if (newRoute.length > 0) {
+          taxi.route = newRoute;
+          taxi.routeStep = 0;
+          taxi.data.status = 'ENROUTE';
+        }
       }
+
+      // If a taxi is ENROUTE, move it along the route
+      if (taxi.data.status === 'ENROUTE') {
+        taxi.routeStep++;
+        // Check if the trip is over
+        if (taxi.routeStep >= taxi.route.length) {
+          taxi.data.status = 'IDLE';
+          taxi.route = [];
+          taxi.routeStep = 0;
+          taxi.data.speedKph = 0;
+        } else {
+          // Update position to the next step in the route
+          const [lon, lat] = taxi.route[taxi.routeStep];
+          taxi.data.lon = lon;
+          taxi.data.lat = lat;
+          taxi.data.speedKph = Math.floor(Math.random() * 20) + 30; // Random speed
+        }
+      }
+
+      // Publish the taxi's current state to Kafka
+      taxi.data.seq = Date.now();
+      await producer.send({
+        topic: 'taxi-locations',
+        messages: [{
+          key: taxi.data.taxiId,
+          value: JSON.stringify(taxi.data),
+        }],
+      });
     }
-  }, 2000);
+    console.log(`Published road-aware updates for ${TAXI_COUNT} taxis.`);
+  }, 2000); // Update every 2 seconds
 }
 
-runSimulation().catch(console.error);
+run().catch(e => console.error('[smart-simulator] Error:', e));

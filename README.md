@@ -168,7 +168,7 @@ SELECT * FROM events ORDER BY timestamp DESC LIMIT 10;
 make install
 
 # Run all Services
-make start-server
+make start
 \`\`\`
 
 

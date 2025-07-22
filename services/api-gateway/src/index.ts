@@ -1,63 +1,29 @@
-// autoride-eda/services/api-gateway/src/index.ts
-import express from "express";
-import http from "http";
-import { Server as SocketIOServer } from "socket.io";
-import cors from "cors";
-import { Kafka, EachMessagePayload } from "kafkajs";
+import express, { Request, Response } from 'express';
+import { Kafka } from 'kafkajs';
 
-const KAFKA_TOPIC = "vehicle.locations";
-
-// 1. Create an Express app.
 const app = express();
-app.use(cors());
+app.use(express.json());
 
-// 2. Create an HTTP server using the Express app.
-const server = http.createServer(app);
+const kafka = new Kafka({
+  clientId: 'api-gateway',
+  brokers: ['localhost:9092'],
+});
+const producer = kafka.producer();
 
-// 3. Create a Socket.IO server, attaching it to the HTTP server.
-const io = new SocketIOServer(server, {
-  cors: {
-    origin: "*", // Allow connections from any origin (for development)
-  },
+app.post('/event', async (req: Request, res: Response) => {
+  const { topic, message } = req.body;
+  if (!topic || !message) {
+    return res.status(400).json({ error: 'Missing topic or message' });
+  }
+  await producer.send({
+    topic,
+    messages: [{ value: JSON.stringify(message) }],
+  });
+  res.json({ status: 'ok' });
 });
 
-// Handle new WebSocket connections.
-io.on("connection", (socket) => {
-  console.log(`[api-gateway] Client connected: ${socket.id}`);
-  socket.on("disconnect", () => {
-    console.log(`[api-gateway] Client disconnected: ${socket.id}`);
+producer.connect().then(() => {
+  app.listen(3001, () => {
+    console.log('API Gateway listening on port 3001');
   });
 });
-
-async function startServer() {
-  console.log("[api-gateway] Starting...");
-
-  // Initialize the Kafka consumer.
-  const kafka = new Kafka({
-    clientId: "api-gateway",
-    brokers: process.env.KAFKA_BROKERS?.split(",") || ["kafka:29092"],
-  });
-  const consumer = kafka.consumer({
-    groupId: "api-gateway-group-" + Date.now(),
-  });
-
-  await consumer.connect();
-  await consumer.subscribe({ topic: KAFKA_TOPIC, fromBeginning: false });
-  console.log(`[api-gateway] Subscribed to Kafka topic: ${KAFKA_TOPIC}`);
-
-  // Consume messages from Kafka and broadcast them over WebSockets.
-  await consumer.run({
-    eachMessage: async ({ message }: EachMessagePayload) => {
-      if (!message.value) return;
-      const vehicleUpdate = JSON.parse(message.value.toString());
-      io.emit("fleetUpdate", [vehicleUpdate]); // Broadcast to all connected clients
-    },
-  });
-
-  const PORT = process.env.PORT || 3000;
-  server.listen(PORT, () => {
-    console.log(`[api-gateway] API Gateway running on port ${PORT}`);
-  });
-}
-
-startServer().catch(console.error);

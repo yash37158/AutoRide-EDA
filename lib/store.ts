@@ -20,6 +20,7 @@ interface AutoRideState {
   networkStatus: "connected" | "disconnected" | "reconnecting";
 
   // Actions
+  setVehicles: (vehicles: VehicleLocation[]) => void;
   updateVehicleLocation: (vehicle: VehicleLocation) => void;
   requestRide: (pickup: GeoPoint, dropoff: GeoPoint) => void;
   assignRide: (rideId: string, taxiId: string, etaSeconds: number) => void;
@@ -49,6 +50,14 @@ export const useAutoRideStore = create<AutoRideState>((set, get) => ({
   networkStatus: "connected",
 
   // Actions
+  setVehicles: (vehicles) => {
+    const vehiclesRecord = vehicles.reduce((acc, vehicle) => {
+      acc[vehicle.taxiId] = vehicle;
+      return acc;
+    }, {} as Record<string, VehicleLocation>);
+    set({ vehicles: vehiclesRecord });
+  },
+
   updateVehicleLocation: (vehicle) =>
     set((state) => ({
       vehicles: {
@@ -159,32 +168,17 @@ export const useAutoRideStore = create<AutoRideState>((set, get) => ({
     })),
 
   initializeSimulation: () => {
-    // Initialize with sample vehicles
-    const sampleVehicles: Record<string, VehicleLocation> = {};
-
-    for (let i = 1; i <= 50; i++) {
-      const taxiId = `taxi-${i.toString().padStart(3, "0")}`;
-      const statuses = ["IDLE", "ASSIGNED", "ENROUTE"];
-      const status = statuses[Math.floor(Math.random() * statuses.length)];
-
-      sampleVehicles[taxiId] = {
-        taxiId,
-        lat: 40.7589 + (Math.random() - 0.5) * 0.02, // Around NYC
-        lon: -73.9851 + (Math.random() - 0.5) * 0.02,
-        speedKph: Math.random() * 50,
-        status: status as any,
-        seq: Date.now(),
-      };
-    }
-
+    // This function previously created mock vehicle data for development.
+    // It is now modified to clear the state, ensuring that only real-time
+    // data from the backend WebSocket is displayed on the map.
     set({
-      vehicles: sampleVehicles,
+      vehicles: {},
       metrics: {
-        activeRides: Math.floor(Math.random() * 15) + 5,
-        avgEta: Math.floor(Math.random() * 10) + 3,
-        assignmentP95: Math.floor(Math.random() * 200) + 150,
+        activeRides: 0,
+        avgEta: 0,
+        assignmentP95: 0,
         surgeMultiplier: 1.0,
-        eventsPerSec: Math.floor(Math.random() * 20) + 10,
+        eventsPerSec: 0,
       },
     });
   },

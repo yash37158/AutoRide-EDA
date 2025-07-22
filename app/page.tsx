@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { MapViewport } from "@/components/map/map-viewport";
+import MapWithTaxies from "@/components/map/MapWithTaxies";
 import { ControlPanel } from "@/components/panels/control-panel";
 import { MetricsPanel } from "@/components/panels/metrics-panel";
 import { useAutoRideStore } from "@/lib/store";
@@ -27,7 +27,7 @@ export default function AutoRideEDA() {
 
       {/* Main Map Area - Hidden on mobile when panel is open */}
       <div className="hidden md:flex flex-1 relative">
-        <MapViewport />
+        <MapWithTaxies />
 
         {/* Top Metrics Bar */}
         <div className="absolute top-0 left-0 right-0 z-10">
