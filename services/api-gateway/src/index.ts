@@ -23,7 +23,15 @@ app.post('/event', async (req: Request, res: Response) => {
 });
 
 producer.connect().then(() => {
-  app.listen(3001, () => {
-    console.log('API Gateway listening on port 3001');
+  const PORT = Number(process.env.API_GATEWAY_PORT || process.env.PORT || 3001);
+  const server = app.listen(PORT, () => {
+    console.log(`API Gateway listening on port ${PORT}`);
+  });
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use. Set API_GATEWAY_PORT to change it.`);
+      process.exit(1);
+    }
+    throw err;
   });
 });

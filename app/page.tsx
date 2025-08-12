@@ -5,16 +5,12 @@ import MapWithTaxies from "@/components/map/MapWithTaxies";
 import { ControlPanel } from "@/components/panels/control-panel";
 import { MetricsPanel } from "@/components/panels/metrics-panel";
 import { useAutoRideStore } from "@/lib/store";
-import { useWebSocket } from "@/lib/websocket";
 
 export default function AutoRideEDA() {
   const { initializeSimulation } = useAutoRideStore();
 
-  // Initialize WebSocket connection
-  useWebSocket();
-
+  // Initialize state (no mock websocket)
   useEffect(() => {
-    // Initialize the simulation with sample data
     initializeSimulation();
   }, [initializeSimulation]);
 

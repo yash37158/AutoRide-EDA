@@ -1,7 +1,20 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { Kafka } from 'kafkajs';
 
-const wss = new WebSocketServer({ port: 3002 });
+const PORT: number = Number(process.env.REALTIME_PORT || process.env.PORT || 3002);
+
+let wss: WebSocketServer;
+try {
+  wss = new WebSocketServer({ port: PORT });
+  console.log(`Realtime WebSocket listening on ${PORT}`);
+} catch (e: any) {
+  if (e && e.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use. Set REALTIME_PORT to change it.`);
+    process.exit(1);
+  }
+  throw e;
+}
+
 const kafka = new Kafka({
   clientId: 'realtime-gateway',
   brokers: ['localhost:9092'],
@@ -14,7 +27,6 @@ async function run() {
 
   consumer.run({
     eachMessage: async ({ message }) => {
-      // Broadcast to all connected clients
       wss.clients.forEach((client: WebSocket) => {
         if (client.readyState === 1) {
           client.send(message.value!.toString());
@@ -23,7 +35,7 @@ async function run() {
     },
   });
 
-  wss.on('connection', (ws: WebSocket) => {
+  wss.on('connection', () => {
     console.log('Frontend connected to WebSocket');
   });
 }
