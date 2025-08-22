@@ -9,9 +9,14 @@ import { useAutoRideStore } from "@/lib/store";
 export default function AutoRideEDA() {
   const { initializeSimulation } = useAutoRideStore();
 
-  // Initialize state (no mock websocket)
+  // Initialize state and restore taxi selection
   useEffect(() => {
     initializeSimulation();
+    
+    // Cleanup on unmount
+    return () => {
+      // Keep taxi selection for page reloads
+    };
   }, [initializeSimulation]);
 
   return (

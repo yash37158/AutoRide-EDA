@@ -1,42 +1,65 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MapPin, Navigation, DollarSign, Sparkles, Zap } from "lucide-react";
-import { Car } from "lucide-react"; // Import the Car component
-
-interface Location {
-  lat: number;
-  lng: number;
-}
+import { Car } from "lucide-react";
+import { useAutoRideStore } from "@/lib/store";
 
 export function RideRequestForm() {
-  const [pickupLocation, setPickupLocation] = useState<Location | null>(null);
-  const [dropoffLocation, setDropoffLocation] = useState<Location | null>(null);
-  const [surgeMultiplier, setSurgeMultiplier] = useState(1.0);
-  const [pickupAddress, setPickupAddress] = useState("");
-  const [dropoffAddress, setDropoffAddress] = useState("");
+  const {
+    pickupLocation,
+    dropoffLocation,
+    pickupAddress,
+    dropoffAddress,
+    surgeMultiplier,
+    setPickupAddress,
+    setDropoffAddress,
+    setSurgeMultiplier,
+    requestRide,
+    selectedTaxi,
+    etaToPickup,
+    etaToDestination,
+    taxiStatus,
+    taxiProgress,
+    taxiRoute,
+  } = useAutoRideStore();
 
   const baseFare = 12.5;
   const estimatedFare = baseFare * surgeMultiplier;
   const canRequestRide = pickupLocation && dropoffLocation;
 
-  const handleRequestRide = () => {
+  const handleRequestRide = async () => {
     if (pickupLocation && dropoffLocation) {
-      alert(
-        `Ride Requested from ${pickupLocation.lat}, ${pickupLocation.lng} to ${dropoffLocation.lat}, ${dropoffLocation.lng} with surge multiplier ${surgeMultiplier}`,
-      );
+      console.log("Requesting ride from:", pickupLocation, "to:", dropoffLocation);
+      try {
+        await requestRide(pickupLocation, dropoffLocation);
+        console.log("Ride requested successfully!");
+      } catch (error) {
+        console.error("Error requesting ride:", error);
+      }
+    } else {
+      console.log("Cannot request ride - missing locations");
     }
   };
+
+  // Clear taxi selection when locations change
+  useEffect(() => {
+    if (!pickupLocation || !dropoffLocation) {
+      useAutoRideStore.getState().clearTaxiSelection();
+    }
+  }, [pickupLocation, dropoffLocation]);
 
   const handleQuickDemo = () => {
     const pickup = { lat: 40.7589, lng: -73.9851 };
     const dropoff = { lat: 40.7614, lng: -73.9776 };
-    setPickupLocation(pickup);
-    setDropoffLocation(dropoff);
+    useAutoRideStore.getState().setPickupLocation(pickup);
+    useAutoRideStore.getState().setDropoffLocation(dropoff);
+    useAutoRideStore.getState().setPickupAddress("Times Square, New York, NY");
+    useAutoRideStore.getState().setDropoffAddress("Central Park, New York, NY");
   };
 
   return (
@@ -44,8 +67,7 @@ export function RideRequestForm() {
       <CardHeader className="pb-4">
         <CardTitle className="text-xl flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-            <Car className="h-6 w-6 text-white" />{" "}
-            {/* Use the Car component here */}
+            <Car className="h-6 w-6 text-white" />
           </div>
           Request Your Ride
         </CardTitle>
@@ -60,7 +82,7 @@ export function RideRequestForm() {
             Pickup Location
           </Label>
           <Input
-            placeholder="Enter address or click on map"
+            placeholder="Click on map to set pickup location"
             value={pickupAddress}
             onChange={(e) => setPickupAddress(e.target.value)}
             className="border-slate-200 focus:border-green-500 focus:ring-green-500/20 bg-white/80 backdrop-blur-sm"
@@ -84,7 +106,7 @@ export function RideRequestForm() {
             Dropoff Location
           </Label>
           <Input
-            placeholder="Enter address or click on map"
+            placeholder="Click on map to set dropoff location"
             value={dropoffAddress}
             onChange={(e) => setDropoffAddress(e.target.value)}
             className="border-slate-200 focus:border-red-500 focus:ring-red-500/20 bg-white/80 backdrop-blur-sm"
@@ -93,12 +115,79 @@ export function RideRequestForm() {
             <div className="flex items-center gap-2 p-2 bg-red-50 rounded-lg">
               <div className="w-2 h-2 bg-red-500 rounded-full"></div>
               <p className="text-xs text-red-700 font-medium">
-                {dropoffLocation.lat.toFixed(4)},{" "}
-                {dropoffLocation.lng.toFixed(4)}
+                {dropoffLocation.lat.toFixed(4)}, {dropoffLocation.lng.toFixed(4)}
               </p>
             </div>
           )}
         </div>
+
+        {/* Selected Taxi & ETA Display */}
+        {selectedTaxi && (
+          <div className={`rounded-xl p-4 border ${
+            taxiStatus === "ARRIVED_AT_PICKUP" 
+              ? "bg-gradient-to-r from-green-50 to-emerald-50 border-green-100" 
+              : "bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-100"
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                  taxiStatus === "ARRIVED_AT_PICKUP" ? "bg-green-100" : "bg-yellow-100"
+                }`}>
+                  <span className="text-lg">{taxiStatus === "ARRIVED_AT_PICKUP" ? "✅" : "🚕"}</span>
+                </div>
+                <div>
+                  <span className={`font-semibold ${
+                    taxiStatus === "ARRIVED_AT_PICKUP" ? "text-green-900" : "text-yellow-900"
+                  }`}>
+                    {selectedTaxi.taxiId} {taxiStatus === "ARRIVED_AT_PICKUP" ? "(Arrived!)" : "(En Route)"}
+                  </span>
+                  <p className={`text-xs ${
+                    taxiStatus === "ARRIVED_AT_PICKUP" ? "text-green-600" : "text-yellow-600"
+                  }`}>
+                    {taxiStatus === "ARRIVED_AT_PICKUP" 
+                      ? "Taxi has arrived at pickup location!" 
+                      : `${Math.round(etaToPickup * (1 - taxiProgress) / 60)} min remaining`
+                    }
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className={`text-sm font-medium ${
+                  taxiStatus === "ARRIVED_AT_PICKUP" ? "text-green-700" : "text-yellow-700"
+                }`}>
+                  {taxiStatus === "ARRIVED_AT_PICKUP" 
+                    ? "Ready to go!" 
+                    : `ETA: ${Math.round(etaToPickup / 60)}m`
+                  }
+                </span>
+              </div>
+            </div>
+            
+            {/* Progress bar - only show when en route */}
+            {taxiStatus !== "ARRIVED_AT_PICKUP" && (
+              <div className="mt-3">
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-yellow-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${taxiProgress * 100}%` }}
+                  ></div>
+                </div>
+                <p className="text-xs text-gray-600 mt-1">
+                  Progress: {Math.round(taxiProgress * 100)}%
+                </p>
+              </div>
+            )}
+            
+            {/* Arrival message */}
+            {taxiStatus === "ARRIVED_AT_PICKUP" && (
+              <div className="mt-3 p-3 bg-green-100 rounded-lg border border-green-200">
+                <p className="text-sm text-green-800 font-medium text-center">
+                  🎉 Your taxi has arrived! Please proceed to the pickup location.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Fare Estimate */}
         {canRequestRide && (

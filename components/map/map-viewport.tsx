@@ -61,13 +61,59 @@ const MAPBOX_TOKEN =
 
 const USING_MAPBOX: boolean = Boolean(MAPBOX_TOKEN);
 
+// Geocoding function using Mapbox Geocoding API
+async function reverseGeocode(lng: number, lat: number): Promise<string> {
+  if (!MAPBOX_TOKEN) {
+    return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&types=address,poi`
+    );
+    const data = await response.json();
+    
+    if (data.features && data.features.length > 0) {
+      return data.features[0].place_name;
+    }
+  } catch (error) {
+    console.error("Geocoding error:", error);
+  }
+  
+  return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+}
+
 export function MapViewport({ children }: { children: React.ReactNode }) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const markersRef = useRef<{ [key: string]: any }>({});
-  const { vehicles, currentRide, setPickupLocation, setDropoffLocation } =
-    useAutoRideStore();
+  const pickupPinRef = useRef<any>(null);
+  const dropoffPinRef = useRef<any>(null);
+  const { 
+    vehicles, 
+    currentRide, 
+    setPickupLocation, 
+    setDropoffLocation,
+    pickupLocation,
+    dropoffLocation,
+    selectedTaxi,
+    etaToPickup,
+    etaToDestination,
+    taxiRoute,
+    rideRoute,
+    taxiProgress,
+    rideProgress,
+    taxiStatus,
+    startTaxiMovement,
+    updateTaxiProgress,
+    startRideJourney,
+    updateRideProgress,
+    completeRide,
+    initializeSimulation,
+    clearTaxiSelection
+  } = useAutoRideStore();
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [isSettingPickup, setIsSettingPickup] = useState(true);
 
   // Default to Mapbox style if token available; otherwise OSM raster style
   const [mapStyle, setMapStyle] = useState<any>(
@@ -197,9 +243,20 @@ export function MapViewport({ children }: { children: React.ReactNode }) {
         }
       });
 
-      // Handle map clicks
-      map.current.on("click", (e: any) => {
-        // selection handled at panel level
+      // Handle map clicks for pin dropping
+      map.current.on("click", async (e: any) => {
+        const { lng, lat } = e.lngLat;
+        const address = await reverseGeocode(lng, lat);
+        
+        if (isSettingPickup) {
+          setPickupLocation({ lat, lng });
+          // Update pickup address in store
+          useAutoRideStore.getState().setPickupAddress(address);
+        } else {
+          setDropoffLocation({ lat, lng });
+          // Update dropoff address in store
+          useAutoRideStore.getState().setDropoffAddress(address);
+        }
       });
     })();
 
@@ -207,9 +264,9 @@ export function MapViewport({ children }: { children: React.ReactNode }) {
       map.current?.remove();
       map.current = null;
     };
-  }, [mapStyle]);
+  }, [mapStyle, isSettingPickup]);
 
-  // Update taxi markers
+  // Update taxi markers with highlighting and arrival state
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
 
@@ -219,14 +276,40 @@ export function MapViewport({ children }: { children: React.ReactNode }) {
     Object.values(vehicles).forEach((vehicle: any) => {
       const el = document.createElement("div");
       el.className = "taxi-marker-container";
+      
+      // Check if this is the selected taxi and its status
+      const isSelected = selectedTaxi?.taxiId === vehicle.taxiId;
+      const hasArrived = taxiStatus === "ARRIVED_AT_PICKUP" && isSelected;
+      
+      let highlightClass = "";
+      let icon = "🚗";
+      let label = `Taxi ${vehicle.taxiId}`;
+      let backgroundColor = "#10B981";
+      
+      if (isSelected) {
+        if (hasArrived) {
+          // Taxi has arrived - show green checkmark
+          highlightClass = "ring-4 ring-green-400 ring-offset-2";
+          icon = "✅";
+          label = "Taxi Arrived!";
+          backgroundColor = "#10B981";
+        } else {
+          // Taxi is en route - show yellow highlight
+          highlightClass = "ring-4 ring-yellow-400 ring-offset-2";
+          icon = "🚕";
+          label = "Selected Taxi";
+          backgroundColor = "#F59E0B";
+        }
+      }
+      
       el.innerHTML = `
         <div class="relative">
-          <div class="relative w-8 h-8 rounded-full border-3 border-white shadow-lg flex items-center justify-center text-lg"
-               style="background: linear-gradient(135deg, #10B981, #10B981dd);">
-            🚗
+          <div class="relative w-8 h-8 rounded-full border-3 border-white shadow-lg flex items-center justify-center text-lg ${highlightClass}"
+               style="background: linear-gradient(135deg, ${backgroundColor}, ${backgroundColor}dd);">
+            ${icon}
           </div>
           <div class="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-            Taxi ${vehicle.taxiId}
+            ${label}
           </div>
         </div>
       `;
@@ -237,7 +320,194 @@ export function MapViewport({ children }: { children: React.ReactNode }) {
 
       markersRef.current[vehicle.taxiId] = marker;
     });
-  }, [vehicles, mapLoaded]);
+  }, [vehicles, mapLoaded, selectedTaxi, taxiStatus]);
+
+  // Update taxi route overlay
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+
+    // Remove existing taxi route
+    if (map.current.getSource?.("taxi-route")) {
+      try {
+        map.current.removeLayer("taxi-route");
+        map.current.removeSource("taxi-route");
+      } catch {
+        /* noop */
+      }
+    }
+
+    // Add taxi route if available
+    if (taxiRoute && taxiRoute.length > 1) {
+      console.log("Adding intelligent taxi route:", taxiRoute);
+      
+      map.current.addSource("taxi-route", {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "LineString",
+            coordinates: taxiRoute.map(point => [point.lng, point.lat]),
+          },
+        },
+      });
+
+      map.current.addLayer({
+        id: "taxi-route",
+        type: "line",
+        source: "taxi-route",
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: {
+          "line-color": "#F59E0B",
+          "line-width": 6,
+          "line-opacity": 0.8,
+          "line-dasharray": [3, 3],
+        },
+      });
+    }
+  }, [taxiRoute, mapLoaded]);
+
+  // Update ride route overlay
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+
+    // Remove existing ride route
+    if (map.current.getSource?.("ride-route")) {
+      try {
+        map.current.removeLayer("ride-route");
+        map.current.removeSource("ride-route");
+      } catch {
+        /* noop */
+      }
+    }
+
+    // Add ride route if available and taxi has arrived at pickup
+    if (rideRoute && rideRoute.length > 1 && taxiStatus === "EN_ROUTE_TO_DESTINATION") {
+      console.log("Adding ride route:", rideRoute);
+      
+      map.current.addSource("ride-route", {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "LineString",
+            coordinates: rideRoute.map(point => [point.lng, point.lat]),
+          },
+        },
+      });
+
+      map.current.addLayer({
+        id: "ride-route",
+        type: "line",
+        source: "ride-route",
+        layout: { "line-join": "round", "line-cap": "round" },
+        paint: {
+          "line-color": "#10B981",
+          "line-width": 6,
+          "line-opacity": 0.8,
+          "line-dasharray": [2, 2],
+        },
+      });
+    }
+  }, [rideRoute, mapLoaded, taxiStatus]);
+
+  // Update taxi position based on current phase
+  useEffect(() => {
+    if (!map.current || !mapLoaded || !selectedTaxi) return;
+
+    if (taxiStatus === "ARRIVED_AT_PICKUP") {
+      // Taxi is at pickup location
+      const targetLocation = pickupLocation || dropoffLocation;
+      if (targetLocation) {
+        const taxiMarker = markersRef.current[selectedTaxi.taxiId];
+        if (taxiMarker) {
+          taxiMarker.setLngLat([targetLocation.lng, targetLocation.lat]);
+        }
+      }
+    } else if (taxiStatus === "EN_ROUTE_TO_DESTINATION") {
+      // Taxi is moving to destination
+      if (rideRoute.length > 1) {
+        const currentIndex = Math.floor(rideProgress * (rideRoute.length - 1));
+        const currentPosition = rideRoute[currentIndex];
+        
+        if (currentPosition) {
+          const taxiMarker = markersRef.current[selectedTaxi.taxiId];
+          if (taxiMarker) {
+            taxiMarker.setLngLat([currentPosition.lng, currentPosition.lat]);
+          }
+        }
+      }
+    } else if (taxiStatus === "EN_ROUTE_TO_PICKUP") {
+      // Taxi is moving to pickup
+      if (taxiRoute.length > 1) {
+        const currentIndex = Math.floor(taxiProgress * (taxiRoute.length - 1));
+        const currentPosition = taxiRoute[currentIndex];
+        
+        if (currentPosition) {
+          const taxiMarker = markersRef.current[selectedTaxi.taxiId];
+          if (taxiMarker) {
+            taxiMarker.setLngLat([currentPosition.lng, currentPosition.lat]);
+          }
+        }
+      }
+    }
+  }, [taxiProgress, rideProgress, selectedTaxi, taxiRoute, rideRoute, mapLoaded, taxiStatus, pickupLocation, dropoffLocation]);
+
+  // Update pickup/dropoff pins
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return;
+
+    // Remove existing pins
+    if (pickupPinRef.current) {
+      pickupPinRef.current.remove();
+      pickupPinRef.current = null;
+    }
+    if (dropoffPinRef.current) {
+      dropoffPinRef.current.remove();
+      dropoffPinRef.current = null;
+    }
+
+    // Add pickup pin
+    if (pickupLocation) {
+      const pickupEl = document.createElement("div");
+      pickupEl.className = "pickup-pin-container";
+      pickupEl.innerHTML = `
+        <div class="relative">
+          <div class="w-6 h-6 bg-green-500 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
+            <div class="w-2 h-2 bg-white rounded-full"></div>
+          </div>
+          <div class="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-green-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+            Pickup
+          </div>
+        </div>
+      `;
+
+      pickupPinRef.current = new (window as any).mapboxgl.Marker(pickupEl)
+        .setLngLat([pickupLocation.lng, pickupLocation.lat])
+        .addTo(map.current!);
+    }
+
+    // Add dropoff pin
+    if (dropoffLocation) {
+      const dropoffEl = document.createElement("div");
+      dropoffEl.className = "dropoff-pin-container";
+      dropoffEl.innerHTML = `
+        <div class="relative">
+          <div class="w-6 h-6 bg-red-500 rounded-full border-3 border-white shadow-lg flex items-center justify-center">
+            <div class="w-2 h-2 bg-white rounded-full"></div>
+          </div>
+          <div class="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-red-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+            Dropoff
+          </div>
+        </div>
+      `;
+
+      dropoffPinRef.current = new (window as any).mapboxgl.Marker(dropoffEl)
+        .setLngLat([dropoffLocation.lng, dropoffLocation.lat])
+        .addTo(map.current!);
+    }
+  }, [pickupLocation, dropoffLocation, mapLoaded]);
 
   // Route overlay (works with both styles)
   useEffect(() => {
@@ -252,7 +522,7 @@ export function MapViewport({ children }: { children: React.ReactNode }) {
       }
     }
 
-    if (currentRide?.pickup && currentRide?.dropoff) {
+    if (pickupLocation && dropoffLocation) {
       map.current.addSource("route", {
         type: "geojson",
         data: {
@@ -261,8 +531,8 @@ export function MapViewport({ children }: { children: React.ReactNode }) {
           geometry: {
             type: "LineString",
             coordinates: [
-              [currentRide.pickup.lng, currentRide.pickup.lat],
-              [currentRide.dropoff.lng, currentRide.dropoff.lat],
+              [pickupLocation.lng, pickupLocation.lat],
+              [dropoffLocation.lng, dropoffLocation.lat],
             ],
           },
         },
@@ -281,12 +551,40 @@ export function MapViewport({ children }: { children: React.ReactNode }) {
         },
       });
     }
-  }, [currentRide, mapLoaded]);
+  }, [pickupLocation, dropoffLocation, mapLoaded]);
 
   return (
     <div className="relative w-full h-full">
       <div ref={mapContainer} className="w-full h-full" />
       {children}
+
+      {/* Pin Mode Toggle */}
+      <div className="absolute top-4 left-4 z-20">
+        <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 p-2">
+          <div className="flex gap-1">
+            <button
+              onClick={() => setIsSettingPickup(true)}
+              className={`px-3 py-2 text-xs font-medium rounded-lg transition-all duration-200 ${
+                isSettingPickup
+                  ? "bg-green-600 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              Set Pickup
+            </button>
+            <button
+              onClick={() => setIsSettingPickup(false)}
+              className={`px-3 py-2 text-xs font-medium rounded-lg transition-all duration-200 ${
+                !isSettingPickup
+                  ? "bg-red-600 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              Set Dropoff
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Map Style Selector (shows OSM only when no token) */}
       <div className="absolute top-4 right-4 z-20">
@@ -317,6 +615,15 @@ export function MapViewport({ children }: { children: React.ReactNode }) {
               </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Instructions */}
+      <div className="absolute bottom-4 left-4 z-20">
+        <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 p-3 max-w-xs">
+          <p className="text-xs text-slate-600">
+            <span className="font-semibold">Click on the map</span> to set your {isSettingPickup ? "pickup" : "dropoff"} location
+          </p>
         </div>
       </div>
     </div>
