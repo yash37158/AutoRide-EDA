@@ -4,9 +4,11 @@ start:
 	cd services/location-simulator && npm install
 	cd services/api-gateway && npm install
 	cd services/realtime-gateway && npm install
+	cd services/dispatcher-ai && npm install
 	npm --prefix services/location-simulator run dev &
 	npm --prefix services/api-gateway run dev &
 	npm --prefix services/realtime-gateway run dev &
+	npm --prefix services/dispatcher-ai run dev &
 
 # Stop all running services and infrastructure
 stop:
@@ -22,5 +24,7 @@ clean:
 install:
 	cd services/location-simulator && npm install
 	cd services/api-gateway && npm install
+	cd services/realtime-gateway && npm install
+	cd services/dispatcher-ai && npm install
 
 .PHONY: start stop clean install

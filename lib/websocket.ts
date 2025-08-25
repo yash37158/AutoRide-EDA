@@ -47,3 +47,18 @@ export function useWebSocket() {
 
   return wsRef.current;
 }
+
+// Add Kafka producer for ride requests
+export async function publishRideRequest(rideData: any) {
+  try {
+    const response = await fetch('http://localhost:3003/ride-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rideData)
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('Failed to publish ride request:', error);
+    return false;
+  }
+}

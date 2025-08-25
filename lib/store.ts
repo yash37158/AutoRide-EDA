@@ -489,6 +489,22 @@ export const useAutoRideStore = create<AutoRideState>((set, get) => ({
       dropoffLocation: dropoff,
     });
 
+    // Publish to Kafka for AI processing
+    try {
+      await fetch('http://localhost:3001/ride-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: "user-demo",
+          pickup,
+          dropoff,
+          timestamp: Date.now()
+        })
+      });
+    } catch (error) {
+      console.error('Failed to publish ride request to Kafka:', error);
+    }
+
     // Start intelligent taxi movement
     state.startTaxiMovement();
 

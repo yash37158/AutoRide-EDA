@@ -147,7 +147,7 @@ export function MapViewport({ children }: { children: React.ReactNode }) {
 
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
-        style: mapStyle as any, // can be URL or style object
+        style: 'mapbox://styles/mapbox/streets-v12', // can be URL or style object
         center: [-73.9851, 40.7589],
         zoom: 13,
         pitch: 45,
@@ -212,31 +212,31 @@ export function MapViewport({ children }: { children: React.ReactNode }) {
             });
 
             // Traffic layer
-            map.current.addSource("mapbox-traffic", {
-              type: "vector",
-              url: "mapbox://mapbox.mapbox-traffic-v1",
-            });
-            map.current.addLayer({
-              id: "traffic",
-              type: "line",
-              source: "mapbox-traffic",
-              "source-layer": "traffic",
-              paint: {
-                "line-width": 2,
-                "line-color": [
-                  "case",
-                  ["==", ["get", "congestion"], "low"],
-                  "#00ff00",
-                  ["==", ["get", "congestion"], "moderate"],
-                  "#ffff00",
-                  ["==", ["get", "congestion"], "heavy"],
-                  "#ff8000",
-                  ["==", ["get", "congestion"], "severe"],
-                  "#ff0000",
-                  "#000000",
-                ],
-              },
-            });
+            // map.current.addSource("mapbox-traffic", {
+            //   type: "vector",
+            //   url: "mapbox://mapbox.mapbox-traffic-v1",
+            // });
+            // map.current.addLayer({
+            //   id: "traffic",
+            //   type: "line",
+            //   source: "mapbox-traffic",
+            //   "source-layer": "traffic",
+            //   paint: {
+            //     "line-width": 2,
+            //     "line-color": [
+            //       "case",
+            //       ["==", ["get", "congestion"], "low"],
+            //       "#00ff00",
+            //       ["==", ["get", "congestion"], "moderate"],
+            //       "#ffff00",
+            //       ["==", ["get", "congestion"], "heavy"],
+            //       "#ff8000",
+            //       ["==", ["get", "congestion"], "severe"],
+            //       "#ff0000",
+            //       "#000000",
+            //     ],
+            //   },
+            // });
           } catch {
             // Ignore if style doesn't have the required sources/layers
           }
@@ -582,38 +582,6 @@ export function MapViewport({ children }: { children: React.ReactNode }) {
             >
               Set Dropoff
             </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Map Style Selector (shows OSM only when no token) */}
-      <div className="absolute top-4 right-4 z-20">
-        <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-slate-200 p-2">
-          <div className="flex gap-1">
-            {mapStyles.map((style) => (
-              <button
-                key={style.name}
-                onClick={() => {
-                  // Switch styles; for Mapbox URLs we pass the string; for OSM we pass the object
-                  setMapStyle(style.value as any);
-                  if (map.current) {
-                    try {
-                      map.current.setStyle(style.value as any);
-                    } catch {
-                      /* noop */
-                    }
-                  }
-                }}
-                className={`px-3 py-2 text-xs font-medium rounded-lg transition-all duration-200 ${
-                  (typeof mapStyle === "string" && mapStyle === style.value) ||
-                  (typeof mapStyle === "object" && style.value === OSM_STYLE)
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                {style.name}
-              </button>
-            ))}
           </div>
         </div>
       </div>

@@ -27,7 +27,7 @@ export function ControlPanel() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">AutoRide</h1>
-            <p className="text-blue-100 text-sm font-medium">Autonomous Fleet Management</p>
+            <p className="text-blue-100 text-sm font-medium">Your NextGen Uber for Autonomous Vehicles</p>
           </div>
         </div>
       </div>

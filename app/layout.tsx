@@ -6,8 +6,8 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "AutoRide EDA - Autonomous Taxi Fleet Simulation",
-  description: "Real-time autonomous taxi fleet orchestration powered by Kafka + Neon + AI microservices",
+  title: "AutoRide EDA - Your NextGen Uber for autonomous vehicles",
+  description: "Real-time autonomous taxi orchestration powered by Kafka + Neon + AI microservices",
     generator: 'v0.dev'
 }
 

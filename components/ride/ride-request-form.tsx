@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { MapPin, Navigation, DollarSign, Sparkles, Zap } from "lucide-react";
 import { Car } from "lucide-react";
 import { useAutoRideStore } from "@/lib/store";
+import { publishRideRequest } from "@/lib/websocket";
 
 export function RideRequestForm() {
   const {
@@ -38,6 +39,15 @@ export function RideRequestForm() {
       try {
         await requestRide(pickupLocation, dropoffLocation);
         console.log("Ride requested successfully!");
+
+        // Publish to Kafka for AI processing
+        await publishRideRequest({
+          rideId: `ride-${Date.now()}`,
+          userId: "user-demo",
+          pickup: pickupLocation,
+          dropoff: dropoffLocation,
+          timestamp: Date.now()
+        });
       } catch (error) {
         console.error("Error requesting ride:", error);
       }
