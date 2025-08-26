@@ -1,247 +1,357 @@
-# AutoRide EDA - Backend Services
+# AutoRide EDA - Autonomous Taxi Simulation
 
-Event-driven autonomous taxi fleet simulation backend built with microservices architecture, Kafka, and Neon PostgreSQL.
+<div align="center">
+
+![AutoRide EDA](https://img.shields.io/badge/AutoRide-EDA-blue?style=for-the-badge&logo=car)
+![Next.js](https://img.shields.io/badge/Next.js-15.0.0-black?style=for-the-badge&logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)
+![Kafka](https://img.shields.io/badge/Kafka-Event%20Streaming-orange?style=for-the-badge&logo=apache-kafka)
+
+**A sophisticated event-driven autonomous taxi  simulation platform with real-time AI-powered dispatching, dynamic pricing, and interactive management.**
+
+[🚀 Quick Start](#-quick-start) • [📖 Features](#-features) • [️ Architecture](#️-architecture) • [🔧 Development](#-development) • [📊 Demo](#-demo)
+
+</div>
+
+---
+
+##  What is AutoRide EDA?
+
+AutoRide EDA (Event-Driven Architecture) is a comprehensive simulation platform that demonstrates modern autonomous taxi  management. It combines real-time vehicle tracking, intelligent AI dispatching, dynamic pricing algorithms, and an interactive web interface to showcase how autonomous ride-sharing services could operate in the future.
+
+###  Key Capabilities
+
+- **Real-time Fleet Simulation**: 7 autonomous taxis operating across Manhattan with realistic movement patterns
+- **AI-Powered Dispatching**: Google Gemini AI analyzes  state and makes intelligent taxi assignments
+- **Dynamic Pricing**: Surge pricing algorithms based on demand and supply
+- **Interactive Web Interface**: Real-time map visualization with taxi tracking and ride management
+- **Event-Driven Architecture**: Kafka-based event streaming for scalable, decoupled services
+- **Intelligent Chat Assistant**: AI-powered  management insights and troubleshooting
+
+## ️ Architecture
+
+### Frontend (Next.js 15 + React 18)
+- **Modern React Application** with TypeScript and Tailwind CSS
+- **Interactive Map Interface** using Mapbox GL for real-time taxi visualization
+- **Real-time Updates** via WebSocket connections
+- **State Management** with Zustand for efficient client-side state
+- **Responsive Design** with mobile-first approach
+
+### Backend Microservices
+- **API Gateway** (Express.js) - Main REST API and event publishing
+- **Location Simulator** - Generates realistic taxi movement data across Manhattan
+- **Dispatcher AI** - Google Gemini-powered intelligent ride assignment
+- **Realtime Gateway** - WebSocket event streaming for frontend updates
+- **Ride Request Service** - Ride lifecycle management and processing
+
+### Infrastructure
+- **RedPanda** (Kafka-compatible) - High-performance event streaming
+- **PostgreSQL 15** - Persistent data storage with comprehensive schema
+- **Redis** - Caching and session management
+- **Docker Compose** - Service orchestration and development environment
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Docker & Docker Compose
-- Node.js 18+ (for local development)
-- Neon Database account
-- OpenAI API key (optional, for chat service)
+- **Docker & Docker Compose** (for infrastructure services)
+- **Node.js 18+** (for local development)
+- **Mapbox API Token** (for map visualization)
+- **Google Gemini API Key** (for AI dispatching)
 
-### 1. Environment Setup
+### 1. Clone and Setup
 
-\`\`\`bash
+```bash
+git clone https://github.com/your-username/AutoRide-EDA.git
+cd AutoRide-EDA
+```
+
+### 2. Environment Configuration
+
+```bash
 # Copy environment template
 cp .env.example .env
 
-# Edit .env with your credentials
+# Edit with your API keys
 nano .env
-\`\`\`
+```
 
 Required environment variables:
-\`\`\`env
-DATABASE_URL=postgresql://username:password@ep-example.us-east-1.aws.neon.tech/autoride?sslmode=require
-OPENAI_API_KEY=sk-your-openai-api-key-here
-API_KEY=your-api-key-for-authentication
-\`\`\`
+```env
+# Mapbox for map visualization
+MAPBOX_TOKEN=your_mapbox_token_here
 
-### 2. Database Setup
+# Google Gemini for AI dispatching
+GEMINI_API_KEY=your_gemini_api_key_here
 
-\`\`\`bash
-# Connect to your Neon database and run:
-psql $DATABASE_URL -f database/schema.sql
-\`\`\`
+# Database (optional for full features)
+DATABASE_URL=postgresql://username:password@localhost:5432/autoride
+```
 
-### 3. Start Services
+### 3. Start the Platform
 
-\`\`\`bash
-# Start all services
-docker-compose up -d
+```bash
+# Install all dependencies
+make install
+
+# Start infrastructure and services
+make start
+
+# Or start individually:
+docker-compose up -d  # Infrastructure (RedPanda, PostgreSQL, Redis)
+npm run dev          # Frontend (Next.js)
+```
+
+### 4. Access the Application
+
+- **Frontend**: http://localhost:3000
+- **API Gateway**: http://localhost:3001
+- **Realtime Gateway**: ws://localhost:3002
+- **Dispatcher AI**: http://localhost:3003
+
+##  Demo Features
+
+### ️ Interactive Fleet Management
+- **Real-time Taxi Tracking**: Watch 7 autonomous taxis navigate Manhattan
+- **Intelligent Route Planning**: AI-powered pickup and dropoff optimization
+- **Live Fleet Metrics**: Active rides, average ETAs, and system performance
+- **Dynamic Pricing**: Real-time surge pricing based on demand
+
+### 🤖 AI-Powered Operations
+- **Smart Dispatching**: AI analyzes state and assigns optimal taxis
+- **Predictive Analytics**: ETA calculations and route optimization
+- **Intelligent Chat**: Ask questions about status and get AI-powered insights
+- **Anomaly Detection**: Automatic detection of unusual patterns
+
+### 📱 User Experience
+- **Ride Request Interface**: Simple pickup/dropoff selection
+- **Real-time Updates**: Live status updates via WebSocket
+- **Responsive Design**: Works seamlessly on desktop and mobile
+- **Performance Monitoring**: Real-time metrics and system health
+
+## 🔧 Development
+
+### Project Structure
+```
+AutoRide-EDA/
+├── app/                    # Next.js frontend pages
+├── components/             # React components
+│   ├── map/               # Map visualization
+│   ├── ride/              # Ride management
+│   ├── panels/            # Control panels
+│   └── ui/                # Reusable UI components
+├── services/              # Backend microservices
+│   ├── api-gateway/       # Main API service
+│   ├── dispatcher-ai/     # AI dispatching service
+│   ├── location-simulator/ # Taxi movement simulation
+│   ├── realtime-gateway/  # WebSocket service
+│   └── ride-request/      # Ride processing service
+├── lib/                   # Shared utilities and types
+├── hooks/                 # Custom React hooks
+└── database/              # Database schema and migrations
+```
+
+### Local Development
+
+```bash
+# Install frontend dependencies
+npm install
+
+# Install service dependencies
+make install
+
+# Start development environment
+make start
 
 # View logs
 docker-compose logs -f
 
-# Check service health
-curl http://localhost:3000/health
-\`\`\`
+# Stop all services
+make stop
+```
 
-## 📡 API Endpoints
+### Adding New Features
 
-### REST API (Port 3000)
+1. **Frontend Components**: Add to `components/` directory
+2. **Backend Services**: Create new service in `services/` directory
+3. **API Endpoints**: Extend API Gateway or create new service
+4. **Event Types**: Update `lib/types.ts` for new Kafka events
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/taxis/locations` | GET | Get all taxi locations |
-| `/pricing/current` | GET | Get current pricing & surge |
-| `/metrics` | GET | Get fleet metrics |
-| `/events/recent` | GET | Get recent events (debug) |
+##  API Reference
 
-### Ride Request Service (Port 3001)
+### Core Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/ride-request` | POST | Request a new ride |
-| `/rides/active` | GET | Get active rides |
-| `/rides/:rideId` | GET | Get specific ride |
+| Service | Endpoint | Method | Description |
+|---------|----------|--------|-------------|
+| API Gateway | `/health` | GET | Service health check |
+| API Gateway | `/event` | POST | Publish Kafka events |
+| Ride Request | `/rides` | POST | Create new ride request |
+| Dispatcher AI | `/chat/query` | POST | AI assistant |
+| Dispatcher AI | `/ride-request` | POST | AI-powered ride assignment |
 
-### Chat AI Service (Port 3002)
+### WebSocket Events
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/chat/query` | POST | Ask AI assistant |
-| `/chat/history` | GET | Get chat history |
+Connect to `ws://localhost:3002` for real-time updates:
 
-## 🔌 WebSocket Events
+```javascript
+const socket = new WebSocket('ws://localhost:3002');
 
-Connect to `ws://localhost:3000` to receive real-time events:
+socket.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Fleet update:', data);
+};
+```
 
-- `rideUpdate` - Ride status changes
-- `vehicleUpdate` - Taxi location updates
-- `pricingUpdate` - Surge pricing changes
-- `anomalyAlert` - Fleet anomalies
+### Kafka Topics
 
-## 🎯 Kafka Topics
-
-| Topic | Description |
-|-------|-------------|
-| `rides.requested` | New ride requests |
-| `rides.assigned` | Taxi assignments |
-| `rides.completed` | Completed rides |
-| `vehicle.locations` | Real-time taxi locations |
-| `pricing.updates` | Dynamic pricing changes |
-| `alerts.anomalies` | Fleet anomalies |
+| Topic | Description | Producer | Consumer |
+|-------|-------------|----------|----------|
+| `taxi-locations` | Real-time taxi positions | Location Simulator | Frontend, Dispatcher AI |
+| `rides.requested` | New ride requests | Frontend | Dispatcher AI |
+| `rides.assigned` | Taxi assignments | Dispatcher AI | Frontend |
+| `pricing.updates` | Dynamic pricing changes | API Gateway | Frontend |
 
 ## 🧪 Testing
 
-### Test Ride Request
-\`\`\`bash
-curl -X POST http://localhost:3001/ride-request \
+### Manual Testing
+
+```bash
+# Test ride request
+curl -X POST http://localhost:3001/rides \
   -H "Content-Type: application/json" \
   -d '{
     "userId": "user-123",
     "pickup": {"lat": 40.7589, "lng": -73.9851},
     "dropoff": {"lat": 40.7614, "lng": -73.9776}
   }'
-\`\`\`
 
-### Test WebSocket Connection
-\`\`\`javascript
-const socket = io('http://localhost:3000');
-socket.on('vehicleUpdate', (data) => {
-  console.log('Vehicle update:', data);
-});
-\`\`\`
+# Test AI chat
+curl -X POST http://localhost:3003/chat/query \
+  -H "Content-Type: application/json" \
+  -d '{"question": "How many taxis are currently idle?"}'
+```
 
-## 🔧 Development
+### Automated Testing
 
-### Local Development
-\`\`\`bash
-# Install dependencies for a service
-cd services/ride-request
-npm install
+```bash
+# Run frontend tests
+npm test
 
-# Run in development mode
-npm run dev
-
-# Build TypeScript
-npm run build
-\`\`\`
-
-### Adding New Services
-1. Create service directory in `services/`
-2. Add Dockerfile and package.json
-3. Update docker-compose.yml
-4. Add Kafka topics to shared types
-
-## 📊 Monitoring
-
-### Service Health
-\`\`\`bash
-# Check all services
-docker-compose ps
-
-# View specific service logs
-docker-compose logs ride-request-service
-
-# Monitor Kafka topics
-docker-compose exec kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic rides.requested
-\`\`\`
-
-### Database Queries
-\`\`\`sql
--- Active rides
-SELECT * FROM rides WHERE status IN ('REQUESTED', 'ASSIGNED', 'ENROUTE');
-
--- Fleet status
-SELECT status, COUNT(*) FROM taxis GROUP BY status;
-
--- Recent events
-SELECT * FROM events ORDER BY timestamp DESC LIMIT 10;
-\`\`\`
-
-### To Run Backend
-\`\`\`bash
-# Install all Service
-make install
-
-# Run all Services
-make start
-\`\`\`
-
+# Run service tests
+cd services/ride-request && npm test
+```
 
 ## 🚀 Deployment
 
-### DigitalOcean Deployment
-\`\`\`bash
-# Create droplet with Docker
-doctl compute droplet create autoride-backend \
-  --image docker-20-04 \
-  --size s-2vcpu-4gb \
-  --region nyc1
+### Production Deployment
 
-# Deploy services
-scp -r . root@your-droplet-ip:/app
-ssh root@your-droplet-ip
-cd /app && docker-compose up -d
-\`\`\`
+```bash
+# Build production images
+docker-compose -f docker-compose.prod.yml build
 
-### Production Considerations
-- Use managed Kafka (Confluent Cloud)
-- Enable SSL/TLS for all connections
-- Set up proper monitoring (Prometheus/Grafana)
-- Configure log aggregation
-- Implement proper secrets management
+# Deploy to production
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+### Environment Variables
+
+```env
+# Production settings
+NODE_ENV=production
+KAFKA_BROKERS=kafka1:9092,kafka2:9092,kafka3:9092
+DATABASE_URL=postgresql://user:pass@db:5432/autoride
+REDIS_URL=redis://redis:6379
+```
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
-**Kafka Connection Errors**
-\`\`\`bash
-# Check Kafka is running
-docker-compose logs kafka
+**Service Connection Errors**
+```bash
+# Check service health
+curl http://localhost:3001/health
+curl http://localhost:3003/health
 
-# Verify topics exist
-docker-compose exec kafka kafka-topics --bootstrap-server localhost:9092 --list
-\`\`\`
+# View service logs
+docker-compose logs -f api-gateway
+```
 
-**Database Connection Issues**
-\`\`\`bash
-# Test database connection
-psql $DATABASE_URL -c "SELECT NOW();"
+**Kafka Issues**
+```bash
+# Check Kafka connectivity
+docker-compose exec redpanda kafka-topics --bootstrap-server localhost:9092 --list
 
-# Check service logs
-docker-compose logs ride-request-service
-\`\`\`
+# Monitor topics
+docker-compose exec redpanda kafka-console-consumer --bootstrap-server localhost:9092 --topic taxi-locations
+```
 
-**Service Not Starting**
-\`\`\`bash
-# Check service dependencies
-docker-compose ps
+**Frontend Issues**
+```bash
+# Clear Next.js cache
+rm -rf .next
+npm run dev
 
-# Rebuild service
-docker-compose build ride-request-service
-docker-compose up -d ride-request-service
-\`\`\`
+# Check browser console for WebSocket errors
+```
 
-## 📈 Performance Metrics
+## 📈 Current Capabilities
 
-- **Target Latency**: < 5s p95 for ride assignments
-- **Throughput**: 1000+ concurrent ride events
-- **Availability**: 99.9% uptime
-- **Event Processing**: < 2s end-to-end latency
+### Fleet Operations
+- **7 Autonomous Taxis** operating across Manhattan
+- **Real-time Location Updates** every 2 seconds
+- **Intelligent Route Planning** using Mapbox Directions API
+- **Zone-based Operations** with home zone assignments
+
+### AI Integration
+- **Google Gemini 2.0 Flash** for intelligent dispatching
+- **Real-time Fleet Analysis** with context-aware decisions
+- **Predictive ETA Calculations** based on current conditions
+- **Natural Language Fleet Management** via chat interface
+
+### Performance Characteristics
+- **Event Processing**: ~2-second update intervals
+- **WebSocket Latency**: <100ms for real-time updates
+- **AI Response Time**: <3 seconds for dispatching decisions
+- **Geographic Coverage**: Manhattan (40.7489°N to 40.7831°N, 73.9851°W to 73.9441°W)
 
 ## 🤝 Contributing
 
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+### Development Workflow
+
 1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes and add tests
+4. Commit with descriptive messages (`git commit -m 'Add amazing feature'`)
+5. Push to your branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request
+
+### Code Standards
+
+- **TypeScript**: Strict mode with comprehensive type definitions
+- **ESLint**: Code quality and consistency
+- **Prettier**: Code formatting
+- **Testing**: Unit tests for new features
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+##  Acknowledgments
+
+- **Mapbox** for mapping and routing services
+- **Google Gemini** for AI-powered decision making
+- **RedPanda** for high-performance event streaming
+- **Next.js** for the modern React framework
+- **Tailwind CSS** for beautiful, responsive design
+
+---
+
+<div align="center">
+
+**Built with ❤️ for the future of autonomous transportation**
+
+[Report Bug](https://github.com/your-username/AutoRide-EDA/issues) • [Request Feature](https://github.com/your-username/AutoRide-EDA/issues) • [View Demo](https://your-demo-url.com)
+
+</div>
