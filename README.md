@@ -2,6 +2,10 @@
 
 <div align="center">
 
+
+https://github.com/user-attachments/assets/241d32ff-69d9-4e85-92e6-55b9c696e539
+
+
 ![AutoRide EDA](https://img.shields.io/badge/AutoRide-EDA-blue?style=for-the-badge&logo=car)
 ![Next.js](https://img.shields.io/badge/Next.js-15.0.0-black?style=for-the-badge&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)
